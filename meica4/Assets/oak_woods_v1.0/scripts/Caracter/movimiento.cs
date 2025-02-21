@@ -161,11 +161,11 @@ public class Movimiento : MonoBehaviour
         }
     }
 
-    public void TakeDamage(float dano)
+    public void TakeDamage(float damage)
     {
         if (isInvincible) return;
 
-        life -= dano;
+        life -= damage;
         life = Mathf.Clamp(life, 0, maxLife);
         UpdateLifeBar();
         animator.SetTrigger("TomarDano");

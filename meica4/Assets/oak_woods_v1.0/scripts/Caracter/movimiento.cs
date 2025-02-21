@@ -5,31 +5,44 @@ using UnityEngine.UI;
 
 public class Movimiento : MonoBehaviour
 {
-    public float velocidad = 5f;
-    public float fuerzasalto = 10f;
-    public float longitudRaycast = 0.1f;
-    public LayerMask capasuelo;
 
-    private bool suelo;
+    [SerializeField]
+    float velocity;
+
+    [SerializeField]
+    float jumpForce;
+
+    [SerializeField]
+    float raycastLength;
+
+    [SerializeField]
+    LayerMask groundLayer;
+
+    private bool isInGround;
     private Rigidbody2D rb;
     public Animator animator;
-    private bool mirandoDerecha = true;
+    private bool lookingRight = true;
 
     [Header("Vida")]
-    public float vidaMaxima = 100f;
-    private float vidaActual;
-    public Image barraDeVida;
+    [SerializeField]
+    float maxLife;
+    private float life;
+    public Image lifeBar;
 
-    private bool puedeMoverse = true;
-    private bool esInvulnerable = false;
+    private bool canMove = true;
+    private bool isInvincible = false;
 
     [Header("Knockback")]
-    public float knockbackFuerza = 5f;
-    public float knockbackDuracion = 0.2f;
+    [SerializeField]
+    float knockbackForce;
+    [SerializeField]
+    float knockbackDuration;
 
     [Header("Invulnerabilidad")]
-    public float tiempoInvulnerabilidad = 1.5f;
-    public float velocidadParpadeo = 0.1f;
+    [SerializeField]
+    float invincibleTime;
+    [SerializeField]
+    float flickerSpeed;
     private SpriteRenderer spriteRenderer;
 
     [Header("Disparo")]
@@ -48,8 +61,8 @@ public class Movimiento : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
-        vidaActual = vidaMaxima;
-        ActualizarBarraDeVida();
+        life = maxLife;
+        UpdateLifeBar();
 
         if (doubleJumpIcon != null)
         {
@@ -68,28 +81,27 @@ public class Movimiento : MonoBehaviour
 
     void Update()
     {
-        if (!puedeMoverse) return;
+        if (!canMove) return;
 
-        float velocidadX = Input.GetAxis("Horizontal") * velocidad * Time.deltaTime;
-        animator.SetFloat("Movement", Mathf.Abs(velocidadX));
+        float velocityX = Input.GetAxis("Horizontal") * velocity * Time.deltaTime;
+        animator.SetFloat("Movement", Mathf.Abs(velocityX));
 
-        if (velocidadX < 0 && mirandoDerecha)
+        if (velocityX < 0 && lookingRight)
         {
-            Girar();
+            TurnCharacter();
         }
-        else if (velocidadX > 0 && !mirandoDerecha)
+        else if (velocityX > 0 && !lookingRight)
         {
-            Girar();
+            TurnCharacter();
         }
 
-        transform.position += new Vector3(velocidadX, 0, 0);
+        transform.position += new Vector3(velocityX, 0, 0);
 
-        RaycastHit2D hit = Physics2D.Raycast(transform.position, Vector2.down, longitudRaycast, capasuelo);
-        bool estabaEnSuelo = suelo;
-        suelo = hit.collider != null;
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, Vector2.down, raycastLength, groundLayer);
+        isInGround = hit.collider != null;
 
         // 🔹 Si tocamos el suelo, restablecemos el doble salto
-        if (suelo && !estabaEnSuelo)
+        if (isInGround)
         {
             canDoubleJump = hasDoubleJumpAbility;
         }
@@ -97,7 +109,7 @@ public class Movimiento : MonoBehaviour
         // 🔹 Salto normal o doble salto
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (suelo)
+            if (isInGround)
             {
                 Jump();
             }
@@ -108,7 +120,7 @@ public class Movimiento : MonoBehaviour
             }
         }
 
-        animator.SetBool("suelo", suelo);
+        animator.SetBool("suelo", isInGround);
 
         if (Input.GetKeyDown(KeyCode.F) && Time.time >= nextFireTime)
         {
@@ -117,16 +129,16 @@ public class Movimiento : MonoBehaviour
         }
     }
 
-    void Girar()
+    void TurnCharacter()
     {
-        mirandoDerecha = !mirandoDerecha;
-        transform.localScale = new Vector3(mirandoDerecha ? 1 : -1, 1, 1);
+        lookingRight = !lookingRight;
+        transform.localScale = new Vector3(lookingRight ? 1 : -1, 1, 1);
     }
 
     void Jump()
     {
         rb.velocity = new Vector2(rb.velocity.x, 0);
-        rb.AddForce(new Vector2(0f, fuerzasalto), ForceMode2D.Impulse);
+        rb.AddForce(new Vector2(0f, jumpForce), ForceMode2D.Impulse);
     }
 
     void Shooter()
@@ -137,7 +149,7 @@ public class Movimiento : MonoBehaviour
             return;
         }
 
-        float direccion = mirandoDerecha ? 1f : -1f;
+        float direccion = lookingRight ? 1f : -1f;
         Vector2 shootDirection = new Vector2(direccion, 0);
 
         GameObject projectile = Instantiate(projectilePrefab, firePoint.position, Quaternion.identity);
@@ -149,61 +161,61 @@ public class Movimiento : MonoBehaviour
         }
     }
 
-    public void TomarDano(float dano)
+    public void TakeDamage(float dano)
     {
-        if (esInvulnerable) return;
+        if (isInvincible) return;
 
-        vidaActual -= dano;
-        vidaActual = Mathf.Clamp(vidaActual, 0, vidaMaxima);
-        ActualizarBarraDeVida();
+        life -= dano;
+        life = Mathf.Clamp(life, 0, maxLife);
+        UpdateLifeBar();
         animator.SetTrigger("TomarDano");
 
         StartCoroutine(KnockbackRutina());
-        StartCoroutine(InvulnerabilidadRutina());
+        StartCoroutine(SetupInvincibleStatus());
 
-        if (vidaActual <= 0)
+        if (life <= 0)
         {
-            Morir();
+            Die();
         }
     }
 
     IEnumerator KnockbackRutina()
     {
-        puedeMoverse = false;
-        float direccion = mirandoDerecha ? -1 : 1;
-        rb.velocity = new Vector2(knockbackFuerza * direccion, rb.velocity.y);
+        canMove = false;
+        float direccion = lookingRight ? -1 : 1;
+        rb.velocity = new Vector2(knockbackForce * direccion, rb.velocity.y);
 
-        yield return new WaitForSeconds(knockbackDuracion);
-        puedeMoverse = true;
+        yield return new WaitForSeconds(knockbackDuration);
+        canMove = true;
     }
 
-    IEnumerator InvulnerabilidadRutina()
+    IEnumerator SetupInvincibleStatus()
     {
-        esInvulnerable = true;
+        isInvincible = true;
         Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Enemigo"), true);
 
         float tiempo = 0f;
-        while (tiempo < tiempoInvulnerabilidad)
+        while (tiempo < invincibleTime)
         {
             spriteRenderer.enabled = !spriteRenderer.enabled;
-            yield return new WaitForSeconds(velocidadParpadeo);
-            tiempo += velocidadParpadeo;
+            yield return new WaitForSeconds(flickerSpeed);
+            tiempo += flickerSpeed;
         }
 
         spriteRenderer.enabled = true;
-        esInvulnerable = false;
+        isInvincible = false;
         Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Enemigo"), false);
     }
 
-    void ActualizarBarraDeVida()
+    void UpdateLifeBar()
     {
-        if (barraDeVida != null)
+        if (lifeBar != null)
         {
-            barraDeVida.fillAmount = vidaActual / vidaMaxima;
+            lifeBar.fillAmount = life / maxLife;
         }
     }
 
-    void Morir()
+    void Die()
     {
         Debug.Log("Personaje ha muerto");
         gameObject.SetActive(false);

@@ -2,12 +2,16 @@ using UnityEngine;
 
 public class Shooter : MonoBehaviour
 {
-    public GameObject projectilePrefab; // Prefab de la flecha
-    public Transform firePoint; // Punto de disparo
-    public float fireRate = 0.5f; // Tiempo entre disparos
-    public float shootForce = 10f; // Fuerza de disparo
+    [SerializeField]
+    GameObject projectilePrefab; // Prefab de la flecha
+    [SerializeField]
+    Transform firePoint; // Punto de disparo
+    [SerializeField]
+    float fireRate; // Tiempo entre disparos
+    [SerializeField]
+    float shootForce; // Fuerza de disparo
 
-    private float nextFireTime = 0f;
+    private float nextFireTime;
 
     void Update()
     {
@@ -22,7 +26,7 @@ public class Shooter : MonoBehaviour
     {
         if (projectilePrefab == null)
         {
-            Debug.LogError("El prefab de la flecha no está asignado en el Inspector.");
+            Debug.LogError("El prefab de la flecha no estï¿½ asignado en el Inspector.");
             return;
         }
 
@@ -31,20 +35,20 @@ public class Shooter : MonoBehaviour
 
         if (rb == null)
         {
-            Debug.LogError("El prefab de la flecha no tiene un Rigidbody2D. Revisa su configuración.");
+            Debug.LogError("El prefab de la flecha no tiene un Rigidbody2D. Revisa su configuraciï¿½n.");
             return;
         }
 
-        // Obtener la dirección basada en la orientación del personaje
-        float direccion = transform.localScale.x > 0 ? 1f : -1f;
-        Vector2 shootDirection = new Vector2(direccion, 0);
+        // Obtener la direcciï¿½n basada en la orientaciï¿½n del personaje
+        float direction = transform.localScale.x > 0 ? 1f : -1f;
+        Vector2 shootDirection = new Vector2(direction, 0);
 
-        // Aplicar velocidad en la dirección correcta
+        // Aplicar velocidad en la direcciï¿½n correcta
         rb.velocity = shootDirection * shootForce;
 
         // Obtener la escala original de la flecha y ajustarla sin hacerla gigante
-        Vector3 escalaOriginal = projectilePrefab.transform.localScale;
-        newProjectile.transform.localScale = new Vector3(Mathf.Abs(escalaOriginal.x) * direccion, escalaOriginal.y, escalaOriginal.z);
+        Vector3 originalScale = projectilePrefab.transform.localScale;
+        newProjectile.transform.localScale = new Vector3(Mathf.Abs(originalScale.x) * direction, originalScale.y, originalScale.z);
 
         Destroy(newProjectile, 3f);
     }

@@ -102,7 +102,7 @@ public class EnemyAI : MonoBehaviour
         {
             if (Time.time > lastAttackTime + timeBetweenAttacks)
             {
-                Movimiento playerLife = other.GetComponent<Movimiento>();
+                Movement playerLife = other.GetComponent<Movement>();
                 if (playerLife != null)
                 {
                     Debug.Log("⚔️ Enemigo ha golpeado al jugador por " + damage + " de daño.");

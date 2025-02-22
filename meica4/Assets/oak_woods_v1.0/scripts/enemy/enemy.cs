@@ -4,101 +4,110 @@ using UnityEngine;
 public class EnemyAI : MonoBehaviour
 {
     [Header("Movimiento")]
-    public Transform puntoA;
-    public Transform puntoB;
-    public float velocidad = 2f;
-    public float rangoDeteccion = 5f;
-    private Transform objetivo;
-    private bool persiguiendo = false;
+    [SerializeField]
+    Transform pointA;
+    [SerializeField]
+    Transform pointB;
+    [SerializeField]
+    float velocity;
+    [SerializeField]
+    float detectionRange;
+    private Transform target;
+    private bool isPursuing = false;
 
     [Header("Ataque")]
-    public int daño = 10;
-    public float tiempoEntreAtaques = 1.5f;
-    private float tiempoUltimoAtaque = 0f;
+    [SerializeField]
+    int damage;
+    [SerializeField]
+    float timeBetweenAttacks;
+    private float lastAttackTime;
 
     [Header("Vida")]
-    public int vidaMaxima = 50;
-    private int vidaActual;
+    [SerializeField]
+    int maxLife;
+    private int currentLife;
 
     [Header("Retroceso al recibir daño")]
-    public float retrocesoForce = 5f; // 🔹 Fuerza del retroceso
-    public float retrocesoDuration = 0.2f; // 🔹 Duración del retroceso
+    [SerializeField]
+    float backwardForce; // 🔹 Fuerza del retroceso
+    [SerializeField]
+    float backwardDuration; // 🔹 Duración del retroceso
 
     private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
     private Animator animator;
-    private Transform jugador;
+    private Transform player;
     private Color originalColor; // 🔹 Guarda el color original del enemigo
 
     void Start()
     {
-        objetivo = puntoA;
+        target = pointA;
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
 
-        vidaActual = vidaMaxima;
+        currentLife = maxLife;
         originalColor = spriteRenderer.color; // 🔹 Guardamos el color original
 
-        GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
-        if (jugadorObj != null)
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
         {
-            jugador = jugadorObj.transform;
+            player = playerObj.transform;
         }
     }
 
     void Update()
     {
-        if (jugador == null) return;
+        if (player == null) return;
 
-        float distanciaJugador = Vector3.Distance(transform.position, jugador.position);
+        float playerDistance = Vector3.Distance(transform.position, player.position);
 
-        if (distanciaJugador < rangoDeteccion)
+        if (playerDistance < detectionRange)
         {
-            persiguiendo = true;
-            objetivo = jugador;
+            isPursuing = true;
+            target = player;
         }
-        else if (persiguiendo)
+        else if (isPursuing)
         {
-            persiguiendo = false;
-            objetivo = (Vector3.Distance(transform.position, puntoA.position) < Vector3.Distance(transform.position, puntoB.position)) ? puntoB : puntoA;
+            isPursuing = false;
+            target = (Vector3.Distance(transform.position, pointA.position) < Vector3.Distance(transform.position, pointB.position)) ? pointB : pointA;
         }
 
-        animator.SetBool("Persiguiendo", persiguiendo);
+        animator.SetBool("Persiguiendo", isPursuing);
         MoverHaciaObjetivo();
     }
 
     void MoverHaciaObjetivo()
     {
-        transform.position = Vector3.MoveTowards(transform.position, objetivo.position, velocidad * Time.deltaTime);
+        transform.position = Vector3.MoveTowards(transform.position, target.position, velocity * Time.deltaTime);
 
-        if (objetivo.position.x > transform.position.x)
+        if (target.position.x > transform.position.x)
         {
             transform.localScale = new Vector3(1, 1, 1);
         }
-        else if (objetivo.position.x < transform.position.x)
+        else if (target.position.x < transform.position.x)
         {
             transform.localScale = new Vector3(-1, 1, 1);
         }
 
-        if (Vector3.Distance(transform.position, objetivo.position) < 0.2f && !persiguiendo)
+        if (Vector3.Distance(transform.position, target.position) < 0.2f && !isPursuing)
         {
-            objetivo = (objetivo == puntoA) ? puntoB : puntoA;
+            target = (target == pointA) ? pointB : pointA;
         }
     }
 
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Player") && persiguiendo)
+        if (other.CompareTag("Player") && isPursuing)
         {
-            if (Time.time > tiempoUltimoAtaque + tiempoEntreAtaques)
+            if (Time.time > lastAttackTime + timeBetweenAttacks)
             {
-                Movimiento vidaJugador = other.GetComponent<Movimiento>();
-                if (vidaJugador != null)
+                Movement playerLife = other.GetComponent<Movement>();
+                if (playerLife != null)
                 {
-                    Debug.Log("⚔️ Enemigo ha golpeado al jugador por " + daño + " de daño.");
-                    vidaJugador.TomarDano(daño);
-                    tiempoUltimoAtaque = Time.time;
+                    Debug.Log("⚔️ Enemigo ha golpeado al jugador por " + damage + " de daño.");
+                    playerLife.TakeDamage(damage);
+                    lastAttackTime = Time.time;
                 }
                 else
                 {
@@ -111,20 +120,20 @@ public class EnemyAI : MonoBehaviour
     // ✅ Método para recibir daño con retroceso e iluminación blanca
     public void TakeDamage(int damage, Vector2 attackDirection)
     {
-        vidaActual -= damage;
-        Debug.Log("💥 Enemigo recibió " + damage + " de daño. Vida restante: " + vidaActual);
+        currentLife -= damage;
+        Debug.Log("💥 Enemigo recibió " + damage + " de daño. Vida restante: " + currentLife);
 
         // 🔹 Aplicar retroceso
         if (rb != null)
         {
             rb.velocity = Vector2.zero; // Detiene cualquier movimiento actual
-            rb.AddForce(attackDirection * retrocesoForce, ForceMode2D.Impulse);
+            rb.AddForce(attackDirection * backwardForce, ForceMode2D.Impulse);
         }
 
         // 🔹 Parpadeo blanco
         StartCoroutine(FlashWhite());
 
-        if (vidaActual <= 0)
+        if (currentLife <= 0)
         {
             Die();
         }
